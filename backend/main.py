@@ -1,6 +1,8 @@
 """
 KelanaAI - Session 04: PostgreSQL Database Integration
 """
+# Add this import at the top of main.py - on Session 5
+from services.bedrock_service import generate_itinerary
 
 from fastapi import FastAPI, HTTPException
 from database import init_db, SessionLocal
@@ -106,3 +108,35 @@ def delete_trip(trip_id: int):
     db.close()
     
     return {"message": f"Trip {trip_id} successfully deleted"}
+
+# Add this endpoint below your existing routes - on Session 5
+@app.post("/api/v1/trips/{trip_id}/generate")
+def generate_trip_recommendation(trip_id: int):
+    """Triggers AI generation for an existing trip and saves it."""
+    db = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    
+    if trip is None:
+        db.close()
+        raise HTTPException(status_code=404, detail=f"Trip {trip_id} not found")
+    
+    # 1. Call Bedrock to generate the recommendation
+    ai_text = generate_itinerary(
+        destination=trip.destination,
+        days=trip.days,
+        budget=trip.budget,
+        category=trip.category
+    )
+    
+    # 2. Save recommendation to PostgreSQL
+    trip.ai_recommendation = ai_text
+    db.commit()
+    db.refresh(trip)
+    db.close()
+    
+    # 3. Return the expected response
+    return {
+        "trip_id": trip.id,
+        "destination": trip.destination,
+        "recommendation": trip.ai_recommendation
+    }
