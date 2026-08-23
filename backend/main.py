@@ -1,99 +1,108 @@
 """
-KelanaAI - Session 03: REST API with FastAPI
-Author: KelanaAI Developer
+KelanaAI - Session 04: PostgreSQL Database Integration
 """
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import Optional, List
+from fastapi import FastAPI, HTTPException
+from database import init_db, SessionLocal
+from models.trip import Trip
+from schemas.trip import TripRequest, TripUpdate
 
-# Reusing business logic from Session 02 - zero modifications needed
 from services.trip_service import (
     get_trip_category,
-    get_travel_season,
     calculate_daily_budget,
-    get_recommended_transportation,
-    get_recommended_places,
-    get_all_categories,
-    get_all_transportations
 )
 
-app = FastAPI(
-    title="KelanaAI API",
-    description="REST API web service for KelanaAI Travel Planner",
-    version="0.3.0"
-)
+app = FastAPI(title="KelanaAI API - Stateful")
 
-
-# Pydantic Model for JSON Request Validation
-class TripRequest(BaseModel):
-    destination: str
-    days: int
-    budget: float
-    travel_month: Optional[str] = "December"
-    travel_style: Optional[str] = "General"
-
+# Initialize database tables when the app starts
+init_db()
 
 # -------------------------------------------------------------
-# 1. Base & Health Endpoints (Hands-on Lab)
-# -------------------------------------------------------------
-@app.get("/")
-def home():
-    """Welcome endpoint."""
-    return {"message": "Welcome to KelanaAI"}
-
-
-@app.get("/health")
-def health_check():
-    """Health check endpoint for hosting platforms."""
-    return {"status": "OK"}
-
-
-# -------------------------------------------------------------
-# 2. Informational Endpoints (Challenge & Homework)
-# -------------------------------------------------------------
-@app.get("/api/v1/trip-categories", response_model=List[str])
-def get_categories():
-    """Returns all available trip categories."""
-    return get_all_categories()
-
-
-@app.get("/api/v1/recommendations", response_model=List[str])
-def get_recommendations():
-    """Homework: Returns list of recommended places."""
-    return get_recommended_places()
-
-
-@app.get("/api/v1/transportations", response_model=List[str])
-def get_transportations():
-    """Homework: Returns list of transport options."""
-    return get_all_transportations()
-
-
-# -------------------------------------------------------------
-# 3. Main Business Logic Endpoint (POST Request)
+# CREATE (POST)
 # -------------------------------------------------------------
 @app.post("/api/v1/trips")
 def create_trip(request: TripRequest):
-    """
-    Receives trip details in JSON, calculates daily budget, 
-    determines category/season, and returns recommendations.
-    """
+    """Saves a new trip permanently into PostgreSQL."""
     daily_budget = calculate_daily_budget(request.budget, request.days)
     category = get_trip_category(request.budget)
-    season = get_travel_season(request.travel_month)
-    recommended_transport = get_recommended_transportation(category)
-    recommended_places = get_recommended_places()
 
-    return {
-        "destination": request.destination,
-        "days": request.days,
-        "budget": request.budget,
-        "travel_month": request.travel_month,
-        "travel_style": request.travel_style,
-        "daily_budget": daily_budget,
-        "category": category,
-        "season": season,
-        "recommended_transportation": recommended_transport,
-        "recommended_places": recommended_places
-    }
+    trip = Trip(
+        destination=request.destination,
+        days=request.days,
+        budget=request.budget,
+        category=category,
+        daily_budget=daily_budget
+    )
+    
+    db = SessionLocal()
+    db.add(trip)
+    db.commit()
+    db.refresh(trip)
+    db.close()
+    
+    return trip
+
+# -------------------------------------------------------------
+# READ (GET)
+# -------------------------------------------------------------
+@app.get("/api/v1/trips")
+def list_trips():
+    """Returns all saved trips."""
+    db = SessionLocal()
+    trips = db.query(Trip).all()
+    db.close()
+    return trips
+
+@app.get("/api/v1/trips/{trip_id}")
+def get_trip(trip_id: int):
+    """Retrieves one trip by ID."""
+    db = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    db.close()
+    
+    if trip is None:
+        raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+    return trip
+
+# -------------------------------------------------------------
+# UPDATE (PUT) - Homework Challenge
+# -------------------------------------------------------------
+@app.put("/api/v1/trips/{trip_id}")
+def update_trip(trip_id: int, request: TripUpdate):
+    """Updates budget and recalculates category + daily_budget."""
+    db = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    
+    if trip is None:
+        db.close()
+        raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+    
+    # Update and recalculate based on new budget
+    trip.budget = request.budget
+    trip.daily_budget = calculate_daily_budget(trip.budget, trip.days)
+    trip.category = get_trip_category(trip.budget)
+    
+    db.commit()
+    db.refresh(trip)
+    db.close()
+    
+    return trip
+
+# -------------------------------------------------------------
+# DELETE (DELETE) - Homework Challenge
+# -------------------------------------------------------------
+@app.delete("/api/v1/trips/{trip_id}")
+def delete_trip(trip_id: int):
+    """Removes a trip by ID."""
+    db = SessionLocal()
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    
+    if trip is None:
+        db.close()
+        raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+        
+    db.delete(trip)
+    db.commit()
+    db.close()
+    
+    return {"message": f"Trip {trip_id} successfully deleted"}
