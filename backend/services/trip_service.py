@@ -1,5 +1,6 @@
 """
 KelanaAI - Business Logic Layer
+Reused across Console App and REST API
 """
 
 def get_trip_category(budget: float) -> str:
@@ -23,10 +24,10 @@ def get_travel_season(month: str) -> str:
 
 def calculate_daily_budget(budget: float, days: int) -> float:
     """Calculates the budget per day."""
-    return budget / days
+    return budget / days if days > 0 else 0.0
 
 def get_recommended_transportation(category: str) -> str:
-    """Challenge: Maps trip category to transportation type."""
+    """Maps trip category to transportation type."""
     if category == "Backpacker":
         return "Bus"
     elif category == "Standard":
@@ -35,5 +36,13 @@ def get_recommended_transportation(category: str) -> str:
         return "Flight"
 
 def get_recommended_places() -> list:
-    """Returns a static list of recommended places."""
-    return ["Tokyo Tower", "Shibuya", "Mount Fuji"]
+    """Returns static list of recommended places."""
+    return ["Tokyo Tower", "Mount Fuji", "Shibuya"]
+
+def get_all_categories() -> list:
+    """Returns list of valid trip categories."""
+    return ["Backpacker", "Standard", "Luxury"]
+
+def get_all_transportations() -> list:
+    """Returns list of valid transportation options."""
+    return ["Bus", "Train", "Flight"]
