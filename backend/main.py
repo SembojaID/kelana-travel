@@ -5,6 +5,7 @@ KelanaAI - Session 04: PostgreSQL Database Integration
 from services.bedrock_service import generate_itinerary
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, SessionLocal
 from models.trip import Trip
 from schemas.trip import TripRequest, TripUpdate
@@ -14,8 +15,15 @@ from services.trip_service import (
     calculate_daily_budget,
 )
 
-app = FastAPI(title="KelanaAI API - Stateful")
 
+app = FastAPI(title="KelanaAI API - Stateful")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # Initialize database tables when the app starts
 init_db()
 

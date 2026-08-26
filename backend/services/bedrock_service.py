@@ -6,7 +6,7 @@ load_dotenv()
 
 client = boto3.client(
     service_name="bedrock-runtime",
-    region_name=os.getenv("AWS_REGION", "us-east-1")
+    region_name=os.getenv("AWS_REGION", "ap-southeast-2")
 )
 
 def generate_itinerary(destination: str, days: int, budget: float, category: str) -> str:
