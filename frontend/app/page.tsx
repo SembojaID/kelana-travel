@@ -19,9 +19,9 @@ export default function Home() {
         destination,
         budget: parseFloat(budget),
         days: parseInt(days),
-        travel_style: travelStyle,
+        category: travelStyle, // Mapped correctly for the backend
       });
-      router.push("/trips"); // Smooth auto-redirect to dashboard
+      router.push("/trips");
     } catch (err) {
       alert("Error generating trip. Ensure backend is running!");
       setLoading(false);
