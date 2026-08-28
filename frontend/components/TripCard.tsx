@@ -13,6 +13,21 @@ export default function TripCard({ trip }: { trip: any }) {
   if (isLuxury) badgeColor = "bg-purple-100 text-purple-700";
   if (isBackpacker) badgeColor = "bg-green-100 text-green-700";
 
+  // Determine category and dynamic badge color
+  const styleName = trip.travel_style || trip.category || "Standard";
+  const styleLower = styleName.toLowerCase();
+  
+  let badgeColor = "bg-blue-100 text-blue-700"; // Default Standard
+  
+  if (styleLower.includes("luxury")) badgeColor = "bg-purple-100 text-purple-700";
+  if (styleLower.includes("backpacker")) badgeColor = "bg-green-100 text-green-700";
+  if (styleLower.includes("family")) badgeColor = "bg-yellow-100 text-yellow-700";
+  if (styleLower.includes("solo")) badgeColor = "bg-teal-100 text-teal-700";
+  if (styleLower.includes("couple")) badgeColor = "bg-pink-100 text-pink-700";
+
+
+
+
   return (
     <div className="bg-white p-6 shadow rounded-lg border border-gray-100 flex flex-col justify-between space-y-4 hover:shadow-lg transition-shadow">
       <div>

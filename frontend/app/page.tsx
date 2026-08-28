@@ -36,7 +36,8 @@ export default function Home() {
           <input className="w-full border p-2 rounded" required placeholder="Destination" value={destination} onChange={(e) => setDestination(e.target.value)} />
           <input className="w-full border p-2 rounded" required type="number" placeholder="Budget (USD)" value={budget} onChange={(e) => setBudget(e.target.value)} />
           <input className="w-full border p-2 rounded" required type="number" placeholder="Days" value={days} onChange={(e) => setDays(e.target.value)} />
-          <input className="w-full border p-2 rounded" required placeholder="Travel Style (e.g., Luxury, Backpacker)" value={travelStyle} onChange={(e) => setTravelStyle(e.target.value)} />
+          <input className="w-full border p-2 rounded" required placeholder="Travel Style (e.g., Luxury, Family, Solo, Couple)" value={travelStyle} onChange={(e) => setTravelStyle(e.target.value)} />
+      
           <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white p-2 rounded font-medium disabled:bg-gray-400">
             {loading ? "Generating AI Itinerary..." : "Generate & Save Trip"}
           </button>
