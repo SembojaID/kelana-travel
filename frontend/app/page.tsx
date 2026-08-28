@@ -7,6 +7,7 @@ export default function Home() {
   const [destination, setDestination] = useState("");
   const [budget, setBudget] = useState("");
   const [days, setDays] = useState("");
+  const [month, setMonth] = useState("");
   const [travelStyle, setTravelStyle] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -19,11 +20,13 @@ export default function Home() {
         destination,
         budget: parseFloat(budget),
         days: parseInt(days),
-        category: travelStyle, // Mapped correctly for the backend
+        travel_month: month, // Matches schemas
+        travel_style: travelStyle, // Matches schemas
       });
       router.push("/trips");
-    } catch (err) {
-      alert("Error generating trip. Ensure backend is running!");
+    } catch (err: any) {
+      alert("Error Details: " + err.message); // This will show us the real culprit!
+      console.error("Full error:", err);
       setLoading(false);
     }
   };
@@ -36,7 +39,8 @@ export default function Home() {
           <input className="w-full border p-2 rounded" required placeholder="Destination" value={destination} onChange={(e) => setDestination(e.target.value)} />
           <input className="w-full border p-2 rounded" required type="number" placeholder="Budget (USD)" value={budget} onChange={(e) => setBudget(e.target.value)} />
           <input className="w-full border p-2 rounded" required type="number" placeholder="Days" value={days} onChange={(e) => setDays(e.target.value)} />
-          <input className="w-full border p-2 rounded" required placeholder="Travel Style (e.g., Luxury, Family, Solo, Couple)" value={travelStyle} onChange={(e) => setTravelStyle(e.target.value)} />
+          <input className="w-full border p-2 rounded" required placeholder="Month (e.g., January, February)" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <input className="w-full border p-2 rounded" required placeholder="Travel Style (e.g., Standard, Luxury, Backpacker, Family, Solo, Couple)" value={travelStyle} onChange={(e) => setTravelStyle(e.target.value)} />
       
           <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white p-2 rounded font-medium disabled:bg-gray-400">
             {loading ? "Generating AI Itinerary..." : "Generate & Save Trip"}

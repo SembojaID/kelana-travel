@@ -9,9 +9,9 @@ class Trip(Base):
     destination = Column(String, nullable=False)
     days = Column(Integer, nullable=False)
     budget = Column(Float, nullable=False)
-    category = Column(String, nullable=False)
-    daily_budget = Column(Float, nullable=False)
+    travel_month = Column(String, nullable=True)
+    travel_season = Column(String, nullable=True)
+    category = Column(String, nullable=True)         # Set to nullable=True just to be safe
+    daily_budget = Column(Float, nullable=True)      # Set to nullable=True in case it's computed later
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # NEW: Store the AI-generated recommendation
     ai_recommendation = Column(Text, nullable=True)

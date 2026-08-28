@@ -2,6 +2,7 @@
 KelanaAI - Session 04: PostgreSQL Database Integration
 """
 # Add this import at the top of main.py - on Session 5
+from models.trip import Trip
 from services.bedrock_service import generate_itinerary
 
 from fastapi import FastAPI, HTTPException
@@ -11,6 +12,7 @@ from models.trip import Trip
 from schemas.trip import TripRequest, TripUpdate
 
 from services.trip_service import (
+    get_travel_season,
     get_trip_category,
     calculate_daily_budget,
 )
@@ -30,27 +32,44 @@ init_db()
 # -------------------------------------------------------------
 # CREATE (POST)
 # -------------------------------------------------------------
+
 @app.post("/api/v1/trips")
 def create_trip(request: TripRequest):
     """Saves a new trip permanently into PostgreSQL."""
     daily_budget = calculate_daily_budget(request.budget, request.days)
     category = get_trip_category(request.budget)
+    calculated_season = get_travel_season(request.travel_month)
 
-    trip = Trip(
+    new_trip = Trip(
         destination=request.destination,
         days=request.days,
         budget=request.budget,
-        category=category,
-        daily_budget=daily_budget
+        travel_month=request.travel_month,
+        category=request.travel_style,  # <-- Change 'travel_style=' to 'category='
+        travel_season=calculated_season
     )
-    
+
     db = SessionLocal()
-    db.add(trip)
+    db.add(new_trip)
     db.commit()
-    db.refresh(trip)
+    db.refresh(new_trip)
+
+
+    # 1. Create the dictionary BEFORE closing the database
+    trip_data = {
+        "id": new_trip.id,
+        "destination": new_trip.destination,
+        "days": new_trip.days,
+        "budget": new_trip.budget,
+        "travel_month": new_trip.travel_month,
+        "travel_style": new_trip.category, # <-- Pull from new_trip.category
+        "travel_season": new_trip.travel_season
+    }
+    # 2. Safely close the database connection
     db.close()
     
-    return trip
+    # 3. Return the cleanly extracted data
+    return trip_data
 
 # -------------------------------------------------------------
 # READ (GET)
