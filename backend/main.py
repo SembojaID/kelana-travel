@@ -5,11 +5,14 @@ KelanaAI - Session 04: PostgreSQL Database Integration
 from models.trip import Trip
 from services.bedrock_service import generate_itinerary
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db, SessionLocal
 from models.trip import Trip
+from models.user import User
 from schemas.trip import TripRequest, TripUpdate
+from schemas.user_schema import UserCreate, UserLogin
+from auth import get_password_hash, verify_password, create_access_token
 
 from services.trip_service import (
     get_travel_season,
@@ -28,6 +31,46 @@ app.add_middleware(
 )
 # Initialize database tables when the app starts
 init_db()
+# -----------------------------------------------------------------------
+# AUTHENTICATION
+# -----------------------------------------------------------------------
+
+@app.post("/api/v1/auth/register")
+def register(user: UserCreate):
+    db = SessionLocal()
+    
+    existing_user = db.query(User).filter(User.email == user.email).first()
+    if existing_user:
+        db.close()
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed_password = get_password_hash(user.password)
+    
+    new_user = User(
+        name=user.name, 
+        email=user.email, 
+        password_hash=hashed_password
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    db.close()
+    
+    return {"message": "User created successfully"}
+
+@app.post("/api/v1/auth/login")
+def login(user: UserLogin):
+    db = SessionLocal()
+    db_user = db.query(User).filter(User.email == user.email).first()
+    
+    if not db_user or not verify_password(user.password, db_user.password_hash):
+        db.close()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    access_token = create_access_token(data={"sub": str(db_user.id)})
+    db.close()
+    
+    return {"access_token": access_token, "token_type": "bearer"}
 
 # -------------------------------------------------------------
 # CREATE (POST)
@@ -75,18 +118,18 @@ def create_trip(request: TripRequest):
 # READ (GET)
 # -------------------------------------------------------------
 @app.get("/api/v1/trips")
-def list_trips():
+def list_trips(current_user: User = Depends(get_current_user)):
     """Returns all saved trips."""
     db = SessionLocal()
-    trips = db.query(Trip).all()
+    trips = db.query(Trip).filter(Trip.user_id == current_user.id).all()
     db.close()
     return trips
 
 @app.get("/api/v1/trips/{trip_id}")
-def get_trip(trip_id: int):
+def get_trip(trip_id: int, current_user: User = Depends(get_current_user)):
     """Retrieves one trip by ID."""
     db = SessionLocal()
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.user_id == current_user.id).first()
     db.close()
     
     if trip is None:
@@ -97,7 +140,7 @@ def get_trip(trip_id: int):
 # UPDATE (PUT) - Homework Challenge
 # -------------------------------------------------------------
 @app.put("/api/v1/trips/{trip_id}")
-def update_trip(trip_id: int, request: TripUpdate):
+def update_trip(trip_id: int, request: TripUpdate, current_user: User = Depends(get_current_user)):
     """Updates budget and recalculates category + daily_budget."""
     db = SessionLocal()
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -105,6 +148,11 @@ def update_trip(trip_id: int, request: TripUpdate):
     if trip is None:
         db.close()
         raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+
+    # NEW: Reject other users' trips (Tugas 2)
+    if trip.user_id != current_user.id:
+        db.close()
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot edit someone else's trip")
     
     # Update and recalculate based on new budget
     trip.budget = request.budget
@@ -121,14 +169,19 @@ def update_trip(trip_id: int, request: TripUpdate):
 # DELETE (DELETE) - Homework Challenge
 # -------------------------------------------------------------
 @app.delete("/api/v1/trips/{trip_id}")
-def delete_trip(trip_id: int):
+def delete_trip(trip_id: int, current_user: User = Depends(get_current_user)):
     """Removes a trip by ID."""
     db = SessionLocal()
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
-    
+
     if trip is None:
         db.close()
         raise HTTPException(status_code=404, detail=f"Trip with id {trip_id} not found")
+
+    # NEW: Reject other users' trips (Tugas 3)
+    if trip.user_id != current_user.id:
+        db.close()
+        raise HTTPException(status_code=403, detail="Forbidden: You cannot delete someone else's trip")
         
     db.delete(trip)
     db.commit()
