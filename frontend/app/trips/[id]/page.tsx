@@ -1,16 +1,48 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { getTrip } from "@/services/tripService";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 
-export default async function TripDetailPage({ params }: { params: { id: string } }) {
-  const { id } = await params;
-  let trip;
-  try {
-    trip = await getTrip(parseInt(id));
-  } catch (error) {
+export default function TripDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const [trip, setTrip] = useState<any>(null);
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    if (!token) {
+      router.push("/login");
+      return;
+    }
+
+    const tripId = params.id as string;
+    if (tripId) {
+      getTrip(tripId)
+        .then((data) => setTrip(data))
+        .catch((err) => {
+          console.error("Failed to fetch trip details:", err);
+          setError(true);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [params.id, router]);
+
+  if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center text-red-600">
         Trip not found or backend offline.
+      </div>
+    );
+  }
+
+  if (loading || !trip) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading trip details...
       </div>
     );
   }

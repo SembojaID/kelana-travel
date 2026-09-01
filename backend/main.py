@@ -13,7 +13,9 @@ from models.user import User
 from schemas.trip import TripRequest, TripUpdate
 from schemas.user_schema import UserCreate, UserLogin
 from auth import get_password_hash, verify_password, create_access_token
-
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from auth import SECRET_KEY, ALGORITHM
 from services.trip_service import (
     get_travel_season,
     get_trip_category,
@@ -72,13 +74,45 @@ def login(user: UserLogin):
     
     return {"access_token": access_token, "token_type": "bearer"}
 
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    db = SessionLocal()
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token structure")
+        
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if user is None:
+            raise HTTPException(status_code=401, detail="User no longer exists")
+        return user
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Could not validate credentials")
+    finally:
+        db.close()
+
+# ADD IT HERE:
+@app.get("/api/v1/auth/me")
+def get_current_user_profile(current_user: User = Depends(get_current_user)):
+    """Returns the authenticated user's profile information and total trips."""
+    db = SessionLocal()
+    trip_count = db.query(Trip).filter(Trip.user_id == current_user.id).count()
+    db.close()
+    return {
+        "name": current_user.name,
+        "email": current_user.email,
+        "total_trips": trip_count
+    }
+
 # -------------------------------------------------------------
 # CREATE (POST)
 # -------------------------------------------------------------
 
 @app.post("/api/v1/trips")
-def create_trip(request: TripRequest):
-    """Saves a new trip permanently into PostgreSQL."""
+def create_trip(request: TripRequest, current_user: User = Depends(get_current_user)):
+    """Saves a new trip permanently into PostgreSQL for the logged-in user."""
     daily_budget = calculate_daily_budget(request.budget, request.days)
     category = get_trip_category(request.budget)
     calculated_season = get_travel_season(request.travel_month)
@@ -88,8 +122,9 @@ def create_trip(request: TripRequest):
         days=request.days,
         budget=request.budget,
         travel_month=request.travel_month,
-        category=request.travel_style,  # <-- Change 'travel_style=' to 'category='
-        travel_season=calculated_season
+        category=request.travel_style,
+        travel_season=calculated_season,
+        user_id=current_user.id  # <-- Bind trip to the authenticated user
     )
 
     db = SessionLocal()
@@ -97,22 +132,20 @@ def create_trip(request: TripRequest):
     db.commit()
     db.refresh(new_trip)
 
-
-    # 1. Create the dictionary BEFORE closing the database
     trip_data = {
         "id": new_trip.id,
         "destination": new_trip.destination,
         "days": new_trip.days,
         "budget": new_trip.budget,
         "travel_month": new_trip.travel_month,
-        "travel_style": new_trip.category, # <-- Pull from new_trip.category
+        "travel_style": new_trip.category,
         "travel_season": new_trip.travel_season
     }
-    # 2. Safely close the database connection
     db.close()
     
-    # 3. Return the cleanly extracted data
     return trip_data
+
+
 
 # -------------------------------------------------------------
 # READ (GET)
@@ -191,16 +224,15 @@ def delete_trip(trip_id: int, current_user: User = Depends(get_current_user)):
 
 # Add this endpoint below your existing routes - on Session 5
 @app.post("/api/v1/trips/{trip_id}/generate")
-def generate_trip_recommendation(trip_id: int):
-    """Triggers AI generation for an existing trip and saves it."""
+def generate_trip_recommendation(trip_id: int, current_user: User = Depends(get_current_user)):
+    """Triggers AI generation for an existing user trip and saves it."""
     db = SessionLocal()
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.user_id == current_user.id).first()
     
     if trip is None:
         db.close()
         raise HTTPException(status_code=404, detail=f"Trip {trip_id} not found")
     
-    # 1. Call Bedrock to generate the recommendation
     ai_text = generate_itinerary(
         destination=trip.destination,
         days=trip.days,
@@ -208,13 +240,11 @@ def generate_trip_recommendation(trip_id: int):
         category=trip.category
     )
     
-    # 2. Save recommendation to PostgreSQL
     trip.ai_recommendation = ai_text
     db.commit()
     db.refresh(trip)
     db.close()
     
-    # 3. Return the expected response
     return {
         "trip_id": trip.id,
         "destination": trip.destination,

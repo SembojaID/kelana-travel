@@ -30,7 +30,8 @@ export default function TripsPage() {
   const sortedTrips = [...filteredTrips].sort((a, b) => {
     if (sortBy === "highest_budget") return b.budget - a.budget;
     if (sortBy === "oldest") return a.id - b.id; // Assuming lower ID is older
-    return b.id - a.id; // Default: Latest (higher ID first)
+    return Number(b.id) - Number(a.id); // Latest First: highest ID first
+   
   });
 
   return (
@@ -41,8 +42,9 @@ export default function TripsPage() {
             <h1 className="text-4xl font-extrabold text-blue-600">Trip History</h1>
             <p className="text-gray-500 mt-1">{trips.length} saved itineraries</p>
           </div>
-          <Link href="/" className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
-            + New Trip
+          {/* Link belongs here inside the JSX return */}
+            <Link href="/trips/new" className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
+          + New Trip
           </Link>
         </div>
 
