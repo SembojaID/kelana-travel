@@ -22,6 +22,11 @@ from services.trip_service import (
     calculate_daily_budget,
 )
 
+from pydantic import BaseModel
+from services.kb_service import ask_knowledge_base
+
+class QuestionRequest(BaseModel):
+    question: str
 
 app = FastAPI(title="KelanaAI API - Stateful")
 app.add_middleware(
@@ -198,6 +203,24 @@ def update_trip(trip_id: int, request: TripUpdate, current_user: User = Depends(
     
     return trip
 
+# -------------------------------------------------------------
+# KNOWLEDGE BASE / RAG ASSISTANT - Session 09
+# -------------------------------------------------------------
+@app.post("/api/v1/ask")
+def ask_question(request: QuestionRequest, current_user: User = Depends(get_current_user)):
+    """
+    Retrieves grounded answers from Amazon Bedrock Knowledge Base.
+    """
+    try:
+        result = ask_knowledge_base(request.question)
+        return {
+            "question": request.question,
+            "answer": result["answer"],
+            "source": result["source"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 # -------------------------------------------------------------
 # DELETE (DELETE) - Homework Challenge
 # -------------------------------------------------------------
