@@ -24,7 +24,15 @@ from services.trip_service import (
 
 from pydantic import BaseModel
 from services.kb_service import ask_knowledge_base
-
+from models.conversation import Conversation, Message
+from schemas.conversation_schema import (
+    ConversationCreate,
+    ConversationUpdate,
+    ConversationResponse,
+    MessageCreate,
+    MessageResponse,
+)
+from services.chat_service import generate_chat_response
 class QuestionRequest(BaseModel):
     question: str
 
@@ -273,3 +281,135 @@ def generate_trip_recommendation(trip_id: int, current_user: User = Depends(get_
         "destination": trip.destination,
         "recommendation": trip.ai_recommendation
     }
+
+# -------------------------------------------------------------
+# CONVERSATIONAL AI CHAT - Session 10
+# -------------------------------------------------------------
+
+@app.post("/api/v1/conversations", status_code=201)
+def create_conversation(req: ConversationCreate, current_user: User = Depends(get_current_user)):
+    """Create a new conversation thread."""
+    db = SessionLocal()
+    new_conv = Conversation(user_id=current_user.id, title=req.title or "New Conversation")
+    db.add(new_conv)
+    db.commit()
+    db.refresh(new_conv)
+    conv_id = new_conv.id
+    db.close()
+    return {"conversation_id": conv_id, "title": req.title}
+
+
+@app.get("/api/v1/conversations")
+def list_conversations(current_user: User = Depends(get_current_user)):
+    """List all conversation threads for the current user."""
+    db = SessionLocal()
+    convs = (
+        db.query(Conversation)
+        .filter(Conversation.user_id == current_user.id)
+        .order_by(Conversation.created_at.desc())
+        .all()
+    )
+    res = [{"id": c.id, "title": c.title, "created_at": c.created_at} for c in convs]
+    db.close()
+    return res
+
+
+@app.get("/api/v1/conversations/{conv_id}/messages")
+def get_messages(conv_id: int, current_user: User = Depends(get_current_user)):
+    """Retrieve all messages in a conversation thread."""
+    db = SessionLocal()
+    conv = (
+        db.query(Conversation)
+        .filter(Conversation.id == conv_id, Conversation.user_id == current_user.id)
+        .first()
+    )
+    if not conv:
+        db.close()
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conv_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+    res = [
+        {
+            "id": m.id,
+            "role": m.role,
+            "content": m.content,
+            "created_at": m.created_at,
+        }
+        for m in messages
+    ]
+    db.close()
+    return res
+
+
+@app.post("/api/v1/conversations/{conv_id}/messages")
+def send_message(conv_id: int, req: MessageCreate, current_user: User = Depends(get_current_user)):
+    """Send a user message, rebuild history context, query Bedrock, and store response."""
+    db = SessionLocal()
+    conv = (
+        db.query(Conversation)
+        .filter(Conversation.id == conv_id, Conversation.user_id == current_user.id)
+        .first()
+    )
+    if not conv:
+        db.close()
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # 1. Save user message
+    user_msg = Message(conversation_id=conv_id, role="user", content=req.content)
+    db.add(user_msg)
+    db.commit()
+
+    # Automatically set title from first user message if still default
+    if conv.title == "New Conversation":
+        conv.title = req.content[:30] + ("..." if len(req.content) > 30 else "")
+        db.commit()
+
+    # 2. Fetch all previous messages in thread for context
+    history = (
+        db.query(Message)
+        .filter(Message.conversation_id == conv_id)
+        .order_by(Message.created_at.asc())
+        .all()
+    )
+
+    # 3. Call Bedrock with full multi-turn history context
+    ai_text = generate_chat_response(history)
+
+    # 4. Save AI response
+    ai_msg = Message(conversation_id=conv_id, role="assistant", content=ai_text)
+    db.add(ai_msg)
+    db.commit()
+    db.refresh(ai_msg)
+
+    response_data = {
+        "id": ai_msg.id,
+        "role": ai_msg.role,
+        "content": ai_msg.content,
+        "created_at": ai_msg.created_at,
+    }
+    db.close()
+    return response_data
+
+
+@app.patch("/api/v1/conversations/{conv_id}")
+def update_conversation_title(conv_id: int, req: ConversationUpdate, current_user: User = Depends(get_current_user)):
+    """Rename a conversation title."""
+    db = SessionLocal()
+    conv = (
+        db.query(Conversation)
+        .filter(Conversation.id == conv_id, Conversation.user_id == current_user.id)
+        .first()
+    )
+    if not conv:
+        db.close()
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    conv.title = req.title
+    db.commit()
+    db.close()
+    return {"message": "Title updated successfully", "title": req.title}
