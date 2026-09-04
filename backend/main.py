@@ -57,6 +57,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "message": "Welcome to KelanaAI API!",
+        "docs_url": "/docs"
+    }
 # -----------------------------------
 # -----------------------------------------------------------------------
 # AUTHENTICATION
