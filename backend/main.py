@@ -1,7 +1,7 @@
 """
 KelanaAI - Session 04: PostgreSQL Database Integration
 """
-# Add this import at the top of main.py - on Session 5
+from contextlib import asynccontextmanager
 from models.trip import Trip
 from services.bedrock_service import generate_itinerary
 
@@ -35,6 +35,12 @@ from schemas.conversation_schema import (
 from services.chat_service import generate_chat_response
 class QuestionRequest(BaseModel):
     question: str
+    
+# Insert the lifespan context manager right before app = FastAPI(...)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()  # Ensures database tables are created on startup
+    yield
 
 app = FastAPI(title="KelanaAI API - Stateful")
 app.add_middleware(
