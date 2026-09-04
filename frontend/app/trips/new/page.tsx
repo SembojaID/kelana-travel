@@ -12,21 +12,21 @@ export default function NewTripPage() {
   const router = useRouter();
 
 const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await generateTrip({
-        destination,
-        days: days ? Number(days) : 0,
-        budget: budget ? Number(budget) : 0,
-        travel_month: travelMonth,
-        travel_style: travelStyle,
-      });
-      router.push('/trips');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to create trip');
-    }
-  };
+  e.preventDefault();
+  try {
+    await generateTrip({
+      destination,
+      days: days ? Number(days) : 0,
+      budget: budget ? Number(budget) : 0,
+      travel_month: travelMonth,
+      travel_style: travelStyle,
+    });
+    router.push('/trips');
+  } catch (err: any) {
+    console.error(err);
+    alert(err.message || 'Failed to create trip');
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 text-black">
