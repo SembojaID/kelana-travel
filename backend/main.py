@@ -13,7 +13,7 @@ from models.user import User
 from schemas.trip import TripRequest, TripUpdate
 from schemas.user_schema import UserCreate, UserLogin
 from auth import get_password_hash, verify_password, create_access_token
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from auth import SECRET_KEY, ALGORITHM
 from services.trip_service import (
@@ -76,11 +76,13 @@ def register(user: UserCreate):
     return {"message": "User created successfully"}
 
 @app.post("/api/v1/auth/login")
-def login(user: UserLogin):
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
     db = SessionLocal()
-    db_user = db.query(User).filter(User.email == user.email).first()
     
-    if not db_user or not verify_password(user.password, db_user.password_hash):
+    # Swagger UI maps the email input to 'username', so we query User.email using form_data.username
+    db_user = db.query(User).filter(User.email == form_data.username).first()
+    
+    if not db_user or not verify_password(form_data.password, db_user.password_hash):
         db.close()
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
