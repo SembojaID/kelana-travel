@@ -9,20 +9,25 @@ export default function Register() {
   const router = useRouter();
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch('http://localhost:8000/api/v1/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password }),
-    });
+  e.preventDefault();
+  
+  const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://kelana-travel-production.up.railway.app/api/v1';
+  const baseUrl = rawBaseUrl.replace(/\/+$/, '');
 
-    if (res.ok) {
-      alert('Registration successful! Please log in.');
-      router.push('/login');
-    } else {
-      alert('Registration failed. Email might already be in use.');
-    }
-  };
+  const res = await fetch(`${baseUrl}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    alert(errorData.detail || 'Registration failed');
+    return;
+  }
+
+  alert('Registration successful!');
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

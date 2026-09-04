@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://kelana-travel-production.up.railway.app/api/v1';
+const res = await fetch(`${baseUrl}/auth/register`, {
 
 export default function ProfilePage() {
   const router = useRouter();

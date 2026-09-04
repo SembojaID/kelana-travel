@@ -10,10 +10,18 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:8000/api/v1/auth/login', {
+      const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://kelana-travel-production.up.railway.app/api/v1';
+      const baseUrl = rawBaseUrl.replace(/\/+$/, '');
+
+      // Prepare URL-encoded form data expected by OAuth2PasswordRequestForm
+      const formData = new URLSearchParams();
+      formData.append('username', email);
+      formData.append('password', password);
+
+      const res = await fetch(`${baseUrl}/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData,
       });
 
       const data = await res.json();

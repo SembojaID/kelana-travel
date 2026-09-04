@@ -37,14 +37,10 @@ class QuestionRequest(BaseModel):
     question: str
     
 # Insert the lifespan context manager right before app = FastAPI(...)
+# --- LIFESPAN CONTEXT MANAGER ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()  # Ensures database tables are created on startup
-    yield
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_db()
     yield
 
 app = FastAPI(title="KelanaAI API - Stateful", lifespan=lifespan)
