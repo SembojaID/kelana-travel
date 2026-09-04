@@ -42,16 +42,12 @@ async def lifespan(app: FastAPI):
     init_db()  # Ensures database tables are created on startup
     yield
 
-app = FastAPI(title="KelanaAI API - Stateful")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# Initialize database tables when the app starts
-init_db()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+app = FastAPI(title="KelanaAI API - Stateful", lifespan=lifespan)
 # -----------------------------------------------------------------------
 # AUTHENTICATION
 # -----------------------------------------------------------------------
